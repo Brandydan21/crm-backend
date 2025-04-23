@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Env
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# Django specific
+db.sqlite3
+/staticfiles/
+/media/
+
+# VS Code or IDE stuff
+.vscode/
+.idea/
+
+# Migrations (optional)
+**/migrations/*.py***
