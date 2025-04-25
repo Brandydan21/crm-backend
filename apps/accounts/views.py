@@ -1,59 +1,95 @@
-from rest_framework import viewsets
-from django.contrib.auth import get_user_model
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
-from .serializers import AdminUserSerializer
-from .permissions import IsAdminGroupOnly
-from rest_framework.decorators import action
+from rest_framework import status, views
 from rest_framework.response import Response
-
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from apps.accounts.models import Company
+from rest_framework.permissions import AllowAny
 
 User = get_user_model()
 
-# -----------------------------
-# Admin ViewSet
-# -----------------------------
+class CreateCompanyWithAdminView(views.APIView):
+    permission_classes = [AllowAny]  # ✅ make it public
 
-class AdminUserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = AdminUserSerializer
-    permission_classes = [IsAuthenticated, IsAdminGroupOnly]
+    """
+    API endpoint to create a company and its initial admin user.
+    """
+    def post(self, request):
+        data = request.data
 
-    def perform_create(self, serializer):
-        if not self.request.user.groups.filter(name='Admin').exists():
-            raise PermissionDenied("Only Admins can create users.")
+        # Extract company data
+        name = data.get('name')
+        business_number = data.get('business_number')
+        company_email = data.get('company_email')
+        company_phone_number = data.get('company_phone_number')
+        company_address = data.get('company_address')
 
-        role = self.request.data.get('role', 'worker').capitalize()
-        if role not in ['Manager', 'Worker']:
-            raise PermissionDenied("Admins can only assign 'Manager' or 'Worker' roles.")
+        # Extract admin user data
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        email = data.get('email')
+        phone_number = data.get('phone_number')
+        password = data.get('password')
 
-        instance = serializer.save()
-        self._assign_group(instance, role)
+        # Validate required fields
+        if not all([name, business_number, company_email, company_phone_number, company_address, first_name, last_name, email, phone_number, password]):
+            return Response({"error": "All fields are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    def perform_update(self, serializer):
-        if not self.request.user.groups.filter(name='Admin').exists():
-            raise PermissionDenied("Only Admins can create users.")
+        # Check for unique constraints
+        if Company.objects.filter(business_number=business_number).exists():
+            return Response({"error": "Business number already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        if Company.objects.filter(company_email=company_email).exists():
+            return Response({"error": "Company email already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        if Company.objects.filter(company_phone_number=company_phone_number).exists():
+            return Response({"error": "Company phone number already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email=email).exists():
+            return Response({"error": "User email already in use."}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(phone_number=phone_number).exists():
+            return Response({"error": "User phone number already in use."}, status=status.HTTP_400_BAD_REQUEST)
 
-        role = self.request.data.get('role')
-        if role:
-            role = role.capitalize()
-            self._check_role_permission(role)
-        instance = serializer.save()
-        if role:
-            self._assign_group(instance, role)
+        # Create the company
+        company = Company.objects.create(
+            name=name,
+            business_number=business_number,
+            company_email=company_email,
+            company_phone_number=company_phone_number,
+            company_address=company_address
+        )
 
-    def perform_destroy(self, instance):
-        instance.delete()
+        # Create the admin user and assign company
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            phone_number=phone_number,
+            company=company
+        )
 
-    def _assign_group(self, user, role):
+        # Add to Admin group
         try:
-            group = Group.objects.get(name=role)
-            user.groups.set([group])
+            owner_group = Group.objects.get(name='BusinessOwner')
+            user.groups.add(owner_group)
         except Group.DoesNotExist:
-            raise PermissionDenied(f"Invalid role: {role}")
+            return Response({"error": "BusinessOwner group not found."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _check_role_permission(self, role):
-        # Admin can assign any role, but we're limiting to Manager and Worker explicitly above.
-        pass
-
+        return Response({
+        "message": "Company and admin user created successfully.",
+        "company": {
+            "id": company.id,
+            "name": company.name,
+            "business_number": company.business_number,
+            "contact_email": company.company_email,
+            "phone_number": company.company_phone_number,
+            "address": company.company_address,
+        },
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone_number": user.phone_number,
+            "company": user.company.name
+        }
+    }, status=status.HTTP_201_CREATED)

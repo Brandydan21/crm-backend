@@ -6,25 +6,23 @@ def create_groups():
     User = get_user_model()
     user_ct = ContentType.objects.get_for_model(User)
 
-    # Create or get groups
+    # Create groups
     admin_group, _ = Group.objects.get_or_create(name='Admin')
-    manager_group, _ = Group.objects.get_or_create(name='Manager')
+    owner_group, _ = Group.objects.get_or_create(name='BusinessOwner')
+    management_group, _ = Group.objects.get_or_create(name='Manager')
     worker_group, _ = Group.objects.get_or_create(name='Worker')
 
-    # Permissions
-    perms = Permission.objects.filter(content_type=user_ct)
+    # Get user permissions
+    all_user_perms = Permission.objects.filter(content_type=user_ct)
+    add_change_delete_view = all_user_perms.filter(
+        codename__in=['add_user', 'change_user', 'delete_user', 'view_user']
+    )
+    view_perm = all_user_perms.filter(codename='view_user')
 
-    # Assign all user perms to Admin
-    admin_group.permissions.set(perms)
+    # Assign permissions
+    admin_group.permissions.set(all_user_perms)
+    owner_group.permissions.set(add_change_delete_view)
+    management_group.permissions.set(add_change_delete_view)
+    worker_group.permissions.set(view_perm)
 
-    # Assign limited perms to Manager
-    manager_perms = perms.filter(codename__in=[
-        'add_user', 'change_user', 'delete_user', 'view_user'
-    ])
-    manager_group.permissions.set(manager_perms)
-
-    # Workers get only view permission
-    worker_perms = perms.filter(codename='view_user')
-    worker_group.permissions.set(worker_perms)
-
-    print("Groups and permissions set.")
+    print("Custom groups and permissions set.")
