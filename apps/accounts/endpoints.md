@@ -1,4 +1,4 @@
-
+create a company and owner user
 post http://127.0.0.1:8000/accounts/create-company/
 
 ```
@@ -14,5 +14,16 @@ post http://127.0.0.1:8000/accounts/create-company/
   "email": "jordan.reid@buildprocabinets.com",
   "phone_number": "0422333444",
   "password": "SecureAdminPass123"
+}
+```
+
+
+Login 
+http://127.0.0.1:8000/accounts/login/
+
+```
+{
+  "email": "bdan@email.com",
+  "password": "123"
 }
 ```

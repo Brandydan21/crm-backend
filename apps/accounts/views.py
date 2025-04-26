@@ -4,11 +4,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from apps.accounts.models import Company
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView
+from apps.accounts.serializers import CustomTokenObtainPairSerializer
+
 
 User = get_user_model()
 
 class CreateCompanyWithAdminView(views.APIView):
-    permission_classes = [AllowAny]  # ✅ make it public
+    permission_classes = [AllowAny] 
 
     """
     API endpoint to create a company and its initial admin user.
@@ -93,3 +96,13 @@ class CreateCompanyWithAdminView(views.APIView):
             "company": user.company.name
         }
     }, status=status.HTTP_201_CREATED)
+
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Custom login view that returns JWTs and user data including group and company info.
+    """
+    permission_classes = [AllowAny] 
+    serializer_class = CustomTokenObtainPairSerializer
+  
